@@ -34,7 +34,6 @@ class CategorySeeder extends Seeder
                 'name'        => 'Poissons & Fruits de mer',
                 'slug'        => 'poissons-fruits-de-mer',
                 'icon'        => 'fish',
-                'color'       => '#3B82F6',
                 'is_active'   => true,
             ],
             [
