@@ -1,0 +1,162 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\KitController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\AddressController;
+use App\Http\Controllers\DeliveryController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\AiAssistantController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminKitController;
+use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminDelivererController;
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminPaymentController;
+use App\Http\Controllers\Admin\AdminZoneController;
+use App\Http\Controllers\Admin\AdminPromoController;
+use App\Http\Controllers\Admin\AdminReviewController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
+
+// 🔓 ROUTES PUBLIQUES
+Route::post('/auth/register', [AuthController::class, 'register']);
+Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+
+Route::get('/kits', [KitController::class, 'index']);
+Route::get('/kits/{slug}', [KitController::class, 'show']);
+Route::get('/categories', [KitController::class, 'categories']);
+
+// Avis publics
+Route::get('/reviews', [ReviewController::class, 'index']);
+
+// Webhook paiement (doit être public, sans CSRF/Auth)
+Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
+
+
+// 🔐 ROUTES PROTÉGÉES (Connecté)
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Authentification & Utilisateur
+    Route::prefix('auth')->group(function () {
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+    });
+
+    // Adresses
+    Route::apiResource('addresses', AddressController::class);
+    Route::get('/zones', function() {
+        return response()->json(\App\Models\DeliveryZone::all());
+    });
+
+    // Commandes
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+    Route::get('/orders/{id}', [OrderController::class, 'show']);
+
+    // Paiement
+    Route::post('/payments/initiate/{orderId}', [PaymentController::class, 'initiate']);
+
+    // Avis & Notifications
+    Route::post('/reviews', [ReviewController::class, 'store']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+
+    // Abonnements
+    Route::get('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'index']);
+    Route::post('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'store']);
+    Route::put('/subscriptions/{id}', [\App\Http\Controllers\SubscriptionController::class, 'update']);
+    Route::put('/subscriptions/{id}/pause', [\App\Http\Controllers\SubscriptionController::class, 'pause']);
+    Route::delete('/subscriptions/{id}', [\App\Http\Controllers\SubscriptionController::class, 'destroy']);
+
+    // 🤖 Assistant IA
+    Route::prefix('ai')->group(function () {
+        Route::post('/chat',                 [AiAssistantController::class, 'chat']);
+        Route::get('/conversations',         [AiAssistantController::class, 'conversations']);
+        Route::get('/conversations/{id}',    [AiAssistantController::class, 'conversation']);
+        Route::delete('/conversations/{id}', [AiAssistantController::class, 'deleteConversation']);
+    });
+
+    // 🛵 ESPACE LIVREUR
+    Route::middleware('is.livreur')->prefix('livreur')->group(function () {
+        Route::get('/deliveries', [DeliveryController::class, 'index']);
+        Route::patch('/deliveries/{id}/take', [DeliveryController::class, 'take']);
+        Route::post('/deliveries/{id}/location', [DeliveryController::class, 'updateLocation']);
+        Route::patch('/deliveries/{id}/complete', [DeliveryController::class, 'complete']);
+    });
+
+
+    // 🛡️ ESPACE ADMIN
+    Route::middleware('is.admin')->prefix('admin')->group(function () {
+
+        // Dashboard
+        Route::get('/stats', [AdminDashboardController::class, 'stats']);
+
+        // Kits repas
+        Route::get('/kits',              [AdminKitController::class, 'index']);
+        Route::post('/kits',             [AdminKitController::class, 'store']);
+        Route::get('/kits/{id}',         [AdminKitController::class, 'show']);
+        Route::put('/kits/{id}',         [AdminKitController::class, 'update']);
+        Route::delete('/kits/{id}',      [AdminKitController::class, 'destroy']);
+        Route::put('/kits/{id}/toggle',  [AdminKitController::class, 'toggle']);
+        Route::post('/kits/upload-image',[AdminKitController::class, 'uploadImage']);
+
+        // Commandes
+        Route::get('/orders',                       [AdminOrderController::class, 'index']);
+        Route::get('/orders/{id}',                  [AdminOrderController::class, 'show']);
+        Route::put('/orders/{id}/status',           [AdminOrderController::class, 'updateStatus']);
+        Route::put('/orders/{id}/assign-deliverer', [AdminOrderController::class, 'assignDeliverer']);
+        Route::get('/orders/export',                [AdminOrderController::class, 'export']);
+
+        // Livreurs
+        Route::get('/livreurs',              [AdminDelivererController::class, 'index']);
+        Route::post('/livreurs',             [AdminDelivererController::class, 'store']);
+        Route::get('/livreurs/{id}',         [AdminDelivererController::class, 'show']);
+        Route::put('/livreurs/{id}',         [AdminDelivererController::class, 'update']);
+        Route::put('/livreurs/{id}/toggle',  [AdminDelivererController::class, 'toggle']);
+
+        // Clients
+        Route::get('/clients',             [AdminUserController::class, 'index']);
+        Route::get('/clients/{id}',        [AdminUserController::class, 'show']);
+        Route::put('/clients/{id}/toggle', [AdminUserController::class, 'toggle']);
+
+        // Paiements
+        Route::get('/paiements',        [AdminPaymentController::class, 'index']);
+        Route::get('/paiements/export', [AdminPaymentController::class, 'export']);
+
+        // Zones
+        Route::get('/zones',        [AdminZoneController::class, 'index']);
+        Route::post('/zones',       [AdminZoneController::class, 'store']);
+        Route::put('/zones/{id}',   [AdminZoneController::class, 'update']);
+        Route::delete('/zones/{id}',[AdminZoneController::class, 'destroy']);
+
+        // Codes promo
+        Route::get('/promos',             [AdminPromoController::class, 'index']);
+        Route::post('/promos',            [AdminPromoController::class, 'store']);
+        Route::put('/promos/{id}',        [AdminPromoController::class, 'update']);
+        Route::delete('/promos/{id}',     [AdminPromoController::class, 'destroy']);
+        Route::put('/promos/{id}/toggle', [AdminPromoController::class, 'toggle']);
+
+        // Avis
+        Route::get('/avis',              [AdminReviewController::class, 'index']);
+        Route::put('/avis/{id}/approve', [AdminReviewController::class, 'approve']);
+        Route::put('/avis/{id}/reject',  [AdminReviewController::class, 'reject']);
+        Route::delete('/avis/{id}',      [AdminReviewController::class, 'destroy']);
+
+        // Catégories
+        Route::get('/categories',             [\App\Http\Controllers\Admin\AdminCategoryController::class, 'index']);
+        Route::post('/categories',            [\App\Http\Controllers\Admin\AdminCategoryController::class, 'store']);
+        Route::put('/categories/{id}',        [\App\Http\Controllers\Admin\AdminCategoryController::class, 'update']);
+        Route::delete('/categories/{id}',     [\App\Http\Controllers\Admin\AdminCategoryController::class, 'destroy']);
+    });
+
+});
