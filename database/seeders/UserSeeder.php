@@ -16,7 +16,7 @@ class UserSeeder extends Seeder
             'name'              => 'Administrateur kirefrais',
             'email'             => 'admin@kirefrais.tg',
             'phone'             => '+22890000001',
-            'password'          => Hash::make('kirefrais@2026'),
+            'password'          => 'kirefrais@2026',
             'role'              => 'admin',
             'is_active'         => true,
             'email_verified_at' => now(),
@@ -48,7 +48,7 @@ class UserSeeder extends Seeder
 
         foreach ($livreurs as $livreur) {
             User::create(array_merge($livreur, [
-                'password'          => Hash::make('livreur@2026'),
+                'password'          => 'livreur@2026',
                 'role'              => 'livreur',
                 'is_active'         => true,
                 'email_verified_at' => now(),
@@ -86,7 +86,7 @@ class UserSeeder extends Seeder
 
         foreach ($clients as $client) {
             User::create(array_merge($client, [
-                'password'          => Hash::make('client@2026'),
+                'password'          => 'client@2026',
                 'role'              => 'client',
                 'is_active'         => true,
                 'email_verified_at' => now(),
