@@ -41,6 +41,9 @@ Route::get('/reviews', [ReviewController::class, 'index']);
 // Webhook paiement (doit être public, sans CSRF/Auth)
 Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
 
+// 🤖 Assistant IA (PUBLIC)
+Route::post('/ai/chat', [AiAssistantController::class, 'chat']);
+
 
 // 🔐 ROUTES PROTÉGÉES (Connecté)
 Route::middleware('auth:sanctum')->group(function () {
@@ -78,9 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/subscriptions/{id}/pause', [\App\Http\Controllers\SubscriptionController::class, 'pause']);
     Route::delete('/subscriptions/{id}', [\App\Http\Controllers\SubscriptionController::class, 'destroy']);
 
-    // 🤖 Assistant IA
+    // 🤖 Assistant IA (HISTORY - AUTH ONLY)
     Route::prefix('ai')->group(function () {
-        Route::post('/chat',                 [AiAssistantController::class, 'chat']);
         Route::get('/conversations',         [AiAssistantController::class, 'conversations']);
         Route::get('/conversations/{id}',    [AiAssistantController::class, 'conversation']);
         Route::delete('/conversations/{id}', [AiAssistantController::class, 'deleteConversation']);
