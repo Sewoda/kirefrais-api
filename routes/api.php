@@ -31,6 +31,10 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 
+// 🌐 AUTH SOCIALE
+Route::get('/auth/{provider}/redirect', [\App\Http\Controllers\SocialAuthController::class, 'redirectToProvider']);
+Route::get('/auth/{provider}/callback', [\App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback']);
+
 Route::get('/kits', [KitController::class, 'index']);
 Route::get('/kits/{slug}', [KitController::class, 'show']);
 Route::get('/categories', [KitController::class, 'categories']);
