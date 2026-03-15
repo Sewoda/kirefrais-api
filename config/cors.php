@@ -15,9 +15,11 @@ return [
         'https://Kirefraistogo.com',     // Production
         'https://www.Kirefraistogo.com', // Production www
         'https://www.kirifrais.com', // Production www
+        "https://kirefrais.netlify.app",
     ],
-
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https://.*\.netlify\.app$#'
+    ],
 
     'allowed_headers' => ['*'],
 
