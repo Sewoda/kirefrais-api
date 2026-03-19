@@ -35,10 +35,10 @@ return [
         ],
     ],
 
-    'cinetpay' => [
-        'site_id' => env('CINETPAY_SITE_ID'),
-        'apikey'  => env('CINETPAY_API_KEY'),
-        'secret'  => env('CINETPAY_SECRET'),
+    'leekpay' => [
+        'public_key' => env('LEEKPAY_PUBLIC_KEY'),
+        'secret_key' => env('LEEKPAY_SECRET_KEY'),
+        'base_url'   => env('LEEKPAY_BASE_URL', 'https://api.leekpay.me/v1'),
     ],
 
     'groq' => [

@@ -14,13 +14,14 @@ class PaymentController extends Controller
     {
         $order = Order::where('user_id', $request->user()->id)->findOrFail($orderId);
 
-        // Ici, on appellerait l'API CinetPay pour obtenir une URL de paiement
-        // Pour cet exemple, on génère une simulation
-        $paymentUrl = "https://checkout.cinetpay.com/payment/" . uniqid();
+        // Initiation simulée avec LeekPay
+        $transactionId = 'ORD-' . strtoupper(uniqid());
+        $paymentUrl = "https://checkout.leekpay.me/pay/" . $transactionId . "?amount=" . $order->total_amount;
 
         return response()->json([
-            'payment_url' => $paymentUrl,
-            'order_ref'   => $order->reference
+            'payment_url'    => $paymentUrl,
+            'transaction_id' => $transactionId,
+            'order_ref'      => $order->reference
         ]);
     }
 

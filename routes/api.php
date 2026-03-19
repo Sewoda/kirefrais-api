@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Abonnements
     Route::get('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'index']);
+    Route::post('/subscriptions/pay', [\App\Http\Controllers\SubscriptionController::class, 'pay']);
     Route::post('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'store']);
     Route::put('/subscriptions/{id}', [\App\Http\Controllers\SubscriptionController::class, 'update']);
     Route::put('/subscriptions/{id}/pause', [\App\Http\Controllers\SubscriptionController::class, 'pause']);
