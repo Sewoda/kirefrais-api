@@ -10,8 +10,9 @@ use Illuminate\Support\Facades\Log;
 class PaymentController extends Controller
 {
     // ── Initiation du paiement (Simulation pour le MVP) ──────
-    public function initiate(Request $request, int $orderId)
+    public function initiate(Request $request, $orderId)
     {
+        $orderId = (int) $orderId;
         $order = Order::where('user_id', $request->user()->id)->findOrFail($orderId);
 
         // Initiation simulée avec LeekPay
