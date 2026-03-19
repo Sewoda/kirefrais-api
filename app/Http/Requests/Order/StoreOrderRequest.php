@@ -14,7 +14,7 @@ class StoreOrderRequest extends FormRequest
         return [
             'address_id'          => 'required|exists:addresses,id',
             'delivery_zone_id'    => 'required|exists:delivery_zones,id',
-            'delivery_date'       => 'required|date|after:today',
+            'delivery_date'       => 'required|date|after_or_equal:today',
             'delivery_slot'       => 'required|in:morning,afternoon,evening',
             'payment_method'      => 'required|in:flooz,tmoney,card,cash',
             'is_subscription'     => 'boolean',
