@@ -37,7 +37,7 @@ return [
     "leekpay" => [
         "public_key" => env("LEEKPAY_PUBLIC_KEY"),
         "secret_key" => env("LEEKPAY_SECRET_KEY"),
-        "base_url" => env("LEEKPAY_BASE_URL", "https://leekpay.fr/api/v1"),
+        "base_url" => env("LEEKPAY_BASE_URL", "https://api.leekpay.me/v1"),
     ],
 
     "groq" => [

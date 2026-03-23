@@ -25,7 +25,7 @@ class PaymentController extends Controller
                 "Content-Type" => "application/json",
                 "Accept" => "application/json",
             ])
-            ->post("https://leekpay.fr/api/v1/checkout", [
+            ->post(config("services.leekpay.base_url") . "/checkout", [
                 "amount" => (int) $order->total_amount,
                 "currency" => "XOF",
                 "description" => "Commande Kirefrais #" . $order->reference,
@@ -89,7 +89,7 @@ class PaymentController extends Controller
             "Authorization" =>
                 "Bearer " . config("services.leekpay.secret_key"),
             "Accept" => "application/json",
-        ])->get("https://leekpay.fr/api/v1/checkout/" . $paymentId);
+        ])->get(config("services.leekpay.base_url") . "/checkout/" . $paymentId);
 
         if ($response->successful()) {
             return response()->json($response->json());
