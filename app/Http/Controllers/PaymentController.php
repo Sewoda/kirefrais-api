@@ -18,32 +18,48 @@ class PaymentController extends Controller
         );
 
         // Appel à l'API LeekPay
-        $response = Http::withHeaders([
-            "Authorization" =>
-                "Bearer " . config("services.leekpay.secret_key"),
-            "Content-Type" => "application/json",
-            "Accept" => "application/json",
-        ])->post("https://leekpay.fr/api/v1/checkout", [
-            "amount" => (int) $order->total_amount,
-            "currency" => "XOF",
-            "description" => "Commande Kirefrais #" . $order->reference,
-            "return_url" =>
-                env("FRONTEND_URL", "https://kirefrais.netlify.app") .
-                "/checkout/confirmation?order_id=" .
-                $order->id,
-            "customer_email" => $request->user()->email,
-        ]);
+        $response = Http::timeout(15)
+            ->withHeaders([
+                "Authorization" =>
+                    "Bearer " . config("services.leekpay.secret_key"),
+                "Content-Type" => "application/json",
+                "Accept" => "application/json",
+            ])
+            ->post("https://leekpay.fr/api/v1/checkout", [
+                "amount" => (int) $order->total_amount,
+                "currency" => "XOF",
+                "description" => "Commande Kirefrais #" . $order->reference,
+                "return_url" =>
+                    env("FRONTEND_URL", "https://kirefrais.netlify.app") .
+                    "/checkout/confirmation?order_id=" .
+                    $order->id,
+                "customer_email" => $request->user()->email,
+            ]);
 
         if ($response->successful()) {
             $data = $response->json();
 
+            // Log la réponse complète pour déboguer la structure
+            Log::info("Réponse LeekPay", ["data" => $data]);
+
             if (isset($data["data"]["payment_url"])) {
+                // Essayer plusieurs clés possibles pour l'ID
+                $paymentId =
+                    $data["data"]["payment_id"] ??
+                    ($data["data"]["id"] ??
+                        ($data["data"]["checkout_id"] ?? null));
+
                 return response()->json([
                     "payment_url" => $data["data"]["payment_url"],
-                    "transaction_id" => $data["data"]["payment_id"],
+                    "transaction_id" => $paymentId,
                     "order_ref" => $order->reference,
                 ]);
             }
+
+            // Log si payment_url est absent
+            Log::warning("LeekPay : payment_url absent dans la réponse", [
+                "data" => $data,
+            ]);
         }
 
         Log::error("Échec initiation LeekPay", [
