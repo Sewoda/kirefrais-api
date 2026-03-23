@@ -49,6 +49,11 @@ class PaymentController extends Controller
                     ($data["data"]["id"] ??
                         ($data["data"]["checkout_id"] ?? null));
 
+                // IMPORTANT : Sauvegarder la référence du paiement sur la commande
+                if ($paymentId) {
+                    $order->update(['payment_reference' => $paymentId]);
+                }
+
                 return response()->json([
                     "payment_url" => $data["data"]["payment_url"],
                     "transaction_id" => $paymentId,
@@ -126,6 +131,12 @@ class PaymentController extends Controller
 
         // 5. Analyser les données du paiement
         $data = json_decode($payload, true);
+        
+        if (!$data || !isset($data["data"])) {
+            Log::warning("Payload webhook LeekPay invalide ou vide.");
+            return response()->json(["error" => "Invalid payload"], 400);
+        }
+
         $status = $data["data"]["status"] ?? null;
         $paymentId = $data["data"]["payment_id"] ?? null;
 
