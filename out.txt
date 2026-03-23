@@ -1,0 +1,17 @@
+https://api.leekpay.me/api/v1/checkout:
+HTTP Status: 404
+Response: {
+  "error": true,
+  "url": "https://api.leekpay.me/api/v1/checkout",
+  "statusCode": 404,
+  "status
+
+https://api.leekpay.me/checkout:
+HTTP Status: 200
+Response: <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, 
+
+https://leekpay.me/api/v1/checkout:
+HTTP Status: 307
+Response: Redirecting...
+
+
