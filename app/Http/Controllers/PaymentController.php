@@ -4,12 +4,31 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
+    // ── Client HTTP LeekPay partagé ──────────────
+    private function leekpayClient(): \Illuminate\Http\Client\PendingRequest
+    {
+        $client = Http::timeout(30)->withHeaders([
+            "Authorization" =>
+                "Bearer " . config("services.leekpay.secret_key"),
+            "Content-Type" => "application/json",
+            "Accept" => "application/json",
+        ]);
+
+        // Désactiver la vérification SSL si nécessaire (ex: Laravel Cloud)
+        if (!config("services.leekpay.verify_ssl", true)) {
+            $client = $client->withoutVerifying();
+        }
+
+        return $client;
+    }
+
     // ── Initiation du paiement avec LeekPay ──────
     public function initiate(Request $request, $orderId)
     {
@@ -17,41 +36,47 @@ class PaymentController extends Controller
             $orderId,
         );
 
-        // Appel à l'API LeekPay
-        $response = Http::timeout(15)
-            ->withHeaders([
-                "Authorization" =>
-                    "Bearer " . config("services.leekpay.secret_key"),
-                "Content-Type" => "application/json",
-                "Accept" => "application/json",
-            ])
-            ->post(config("services.leekpay.base_url") . "/checkout", [
-                "amount" => (int) $order->total_amount,
-                "currency" => "XOF",
-                "description" => "Commande Kirefrais #" . $order->reference,
-                "return_url" =>
-                    env("FRONTEND_URL", "https://kirefrais.netlify.app") .
-                    "/checkout/confirmation?order_id=" .
-                    $order->id,
-                "customer_email" => $request->user()->email,
+        try {
+            $response = $this->leekpayClient()->post(
+                config("services.leekpay.base_url") . "/checkout",
+                [
+                    "amount" => (int) $order->total_amount,
+                    "currency" => "XOF",
+                    "description" => "Commande Kirefrais #" . $order->reference,
+                    "return_url" =>
+                        env("FRONTEND_URL", "https://kirefrais.netlify.app") .
+                        "/checkout/confirmation?order_id=" .
+                        $order->id,
+                    "customer_email" => $request->user()->email,
+                ],
+            );
+        } catch (ConnectionException $e) {
+            Log::error("LeekPay : impossible de se connecter", [
+                "url" => config("services.leekpay.base_url") . "/checkout",
+                "message" => $e->getMessage(),
             ]);
+
+            return response()->json(
+                [
+                    "message" =>
+                        "Le service de paiement est inaccessible. Veuillez réessayer dans quelques instants.",
+                ],
+                503,
+            );
+        }
 
         if ($response->successful()) {
             $data = $response->json();
 
-            // Log la réponse complète pour déboguer la structure
+            // Log la réponse complète pour déboguer
             Log::info("Réponse LeekPay", ["data" => $data]);
 
             if (isset($data["data"]["payment_url"])) {
-                // Essayer plusieurs clés possibles pour l'ID
-                $paymentId =
-                    $data["data"]["payment_id"] ??
-                    ($data["data"]["id"] ??
-                        ($data["data"]["checkout_id"] ?? null));
+                $paymentId = $data["data"]["payment_id"] ?? null;
 
-                // IMPORTANT : Sauvegarder la référence du paiement sur la commande
+                // Sauvegarder la référence du paiement sur la commande
                 if ($paymentId) {
-                    $order->update(['payment_reference' => $paymentId]);
+                    $order->update(["payment_reference" => $paymentId]);
                 }
 
                 return response()->json([
@@ -61,7 +86,7 @@ class PaymentController extends Controller
                 ]);
             }
 
-            // Log si payment_url est absent
+            // payment_url absent dans la réponse
             Log::warning("LeekPay : payment_url absent dans la réponse", [
                 "data" => $data,
             ]);
@@ -85,11 +110,27 @@ class PaymentController extends Controller
     // ── Vérifier le statut d'un paiement ──────────
     public function verify(Request $request, $paymentId)
     {
-        $response = Http::withHeaders([
-            "Authorization" =>
-                "Bearer " . config("services.leekpay.secret_key"),
-            "Accept" => "application/json",
-        ])->get(config("services.leekpay.base_url") . "/checkout/" . $paymentId);
+        try {
+            $response = $this->leekpayClient()->get(
+                config("services.leekpay.base_url") . "/checkout/" . $paymentId,
+            );
+        } catch (ConnectionException $e) {
+            Log::error(
+                "LeekPay : impossible de vérifier le paiement (connexion)",
+                [
+                    "payment_id" => $paymentId,
+                    "message" => $e->getMessage(),
+                ],
+            );
+
+            return response()->json(
+                [
+                    "message" =>
+                        "Le service de paiement est inaccessible. Veuillez réessayer.",
+                ],
+                503,
+            );
+        }
 
         if ($response->successful()) {
             return response()->json($response->json());
@@ -131,7 +172,7 @@ class PaymentController extends Controller
 
         // 5. Analyser les données du paiement
         $data = json_decode($payload, true);
-        
+
         if (!$data || !isset($data["data"])) {
             Log::warning("Payload webhook LeekPay invalide ou vide.");
             return response()->json(["error" => "Invalid payload"], 400);
@@ -141,7 +182,6 @@ class PaymentController extends Controller
         $paymentId = $data["data"]["payment_id"] ?? null;
 
         if ($status === "paid" && $paymentId) {
-            // Récupérer l'order lié via le payment_id stocké
             $order = Order::where("payment_reference", $paymentId)->first();
 
             if ($order) {
