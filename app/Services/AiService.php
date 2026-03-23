@@ -232,7 +232,7 @@ PROMPT;
                 $k->prep_time,
                 $k->difficulty,
                 number_format($k->price_1p, 0, '.', ' '),
-                $k->is_vegetarian ? 'Oui' : 'Non',
+                $k->is_vegetarian ? 'Oui' : 'Non'+,
                 is_array($k->ingredients) ? implode(', ', $k->ingredients) : $k->ingredients,
                 $steps ?: 'Non détaillées'
             );

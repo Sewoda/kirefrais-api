@@ -1,6 +1,4 @@
 <?php
-// app/Http/Controllers/AiAssistantController.php
-
 namespace App\Http\Controllers;
 
 use App\Models\AiConversation;

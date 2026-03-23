@@ -23,22 +23,37 @@ class SubscriptionController extends Controller
 
         $user = $request->user();
 
-        // 1. Logic to initiate LeekPay
-        // Simulating the call to LeekPay API
-        $publicKey = config('services.leekpay.public_key');
-        $secretKey = config('services.leekpay.secret_key');
-        
-        $transactionId = 'SUB-' . strtoupper(uniqid());
-        
-        // We simulate a successful response from LeekPay API that returns a check-out URL
-        $paymentUrl = "https://checkout.leekpay.me/pay/" . $transactionId . "?amount=" . $validated['total'];
-
-        // 2. Here we could create a pending subscription or store the intent
-        // For now, we return the URL
-        return response()->json([
-            'payment_url' => $paymentUrl,
-            'transaction_id' => $transactionId
+        // Initiation du paiement de l'abonnement via LeekPay API
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-API-KEY' => config('services.leekpay.secret_key'),
+            'Accept'    => 'application/json',
+        ])->post(config('services.leekpay.base_url') . '/payments', [
+            'amount'      => (int) $validated['total'],
+            'currency'    => 'XOF',
+            'description' => "Abonnement Kirefrais - Plan " . $validated['plan'],
+            'return_url'  => env('FRONTEND_URL', 'https://kirefrais.netlify.app') . '/profil/abonnements',
+            'cancel_url'  => env('FRONTEND_URL', 'https://kirefrais.netlify.app') . '/abonnements',
+            'webhook_url' => config('app.url') . '/api/payments/webhook',
+            'metadata'    => [
+                'type'     => 'subscription',
+                'plan'     => $validated['plan'],
+                'user_id'  => $user->id,
+                'portions' => $validated['portions']
+            ]
         ]);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            return response()->json([
+                'payment_url'    => $data['data']['checkout_url'],
+                'transaction_id' => $data['data']['id']
+            ]);
+        }
+
+        return response()->json([
+            'message' => "Erreur lors de l'initiation du paiement de l'abonnement.",
+            'error'   => $response->json()
+        ], 400);
     }
 
     public function store(Request $request)
