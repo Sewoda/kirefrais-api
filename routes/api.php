@@ -10,6 +10,7 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AiAssistantController;
+use App\Http\Controllers\OfferController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminKitController;
 use App\Http\Controllers\Admin\AdminOrderController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminPaymentController;
 use App\Http\Controllers\Admin\AdminZoneController;
 use App\Http\Controllers\Admin\AdminPromoController;
+use App\Http\Controllers\Admin\AdminOfferController;
 use App\Http\Controllers\Admin\AdminReviewController;
 
 /*
@@ -41,6 +43,11 @@ Route::get('/categories', [KitController::class, 'categories']);
 
 // Avis publics
 Route::get('/reviews', [ReviewController::class, 'index']);
+
+// 🎁 Offres & Abonnements (PUBLIC)
+Route::get('/offers', [OfferController::class, 'index']);
+Route::get('/offers/{slug}', [OfferController::class, 'show']);
+Route::get('/offers/{slug}/subscriptions', [OfferController::class, 'subscriptions']);
 
 // Webhook paiement (doit être public, sans CSRF/Auth)
 Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
@@ -80,7 +87,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Abonnements
     Route::get('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'index']);
-    Route::post('/subscriptions/pay', [\App\Http\Controllers\SubscriptionController::class, 'pay']);
+    Route::post('/subscriptions/pay', [OfferController::class, 'pay']);
     Route::post('/subscriptions', [\App\Http\Controllers\SubscriptionController::class, 'store']);
     Route::put('/subscriptions/{id}', [\App\Http\Controllers\SubscriptionController::class, 'update']);
     Route::put('/subscriptions/{id}/pause', [\App\Http\Controllers\SubscriptionController::class, 'pause']);
@@ -164,6 +171,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/categories',            [\App\Http\Controllers\Admin\AdminCategoryController::class, 'store']);
         Route::put('/categories/{id}',        [\App\Http\Controllers\Admin\AdminCategoryController::class, 'update']);
         Route::delete('/categories/{id}',     [\App\Http\Controllers\Admin\AdminCategoryController::class, 'destroy']);
+        // Offres & Abonnements
+        Route::get('/offers',                 [AdminOfferController::class, 'index']);
+        Route::post('/offers',                [AdminOfferController::class, 'store']);
+        Route::get('/offers/{id}',            [AdminOfferController::class, 'show']);
+        Route::put('/offers/{id}',            [AdminOfferController::class, 'update']);
+        Route::delete('/offers/{id}',         [AdminOfferController::class, 'destroy']);
+        Route::put('/offers/{id}/toggle',     [AdminOfferController::class, 'toggle']);
+
+        // Formules d'abonnement (sub-resources)
+        Route::post('/offers/{offerId}/subscriptions',      [AdminOfferController::class, 'storeSubscription']);
+        Route::put('/subscriptions/{subId}',                [AdminOfferController::class, 'updateSubscription']);
+        Route::delete('/subscriptions/{subId}',             [AdminOfferController::class, 'destroySubscription']);
     });
 
 });
