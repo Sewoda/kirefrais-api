@@ -44,11 +44,14 @@ class PaymentController extends Controller
                     "currency" => "XOF",
                     "description" => "Commande Kirefrais #" . $order->reference,
                     "return_url" =>
-                        env("FRONTEND_URL", "https://kirefrais.netlify.app") .
+                        env("FRONTEND_URL") .
                         "/checkout/confirmation?order_id=" .
                         $order->id,
                     "customer_email" => $request->user()->email,
+                    "webhook_url"    => env("APP_URL") . "/api/webhook/leekpay",
+                    
                 ],
+                
             );
         } catch (ConnectionException $e) {
             Log::error("LeekPay : impossible de se connecter", [
@@ -152,63 +155,149 @@ class PaymentController extends Controller
     }
 
     // ── Webhook LeekPay (Notifications de paiement) ──────────
+    // public function webhook(Request $request)
+    // {
+    //     // 1. Récupérer la signature envoyée par LeekPay
+    //     $signature = $request->header("X-LeekPay-Signature");
+
+    //     // 2. Récupérer le corps brut de la requête
+    //     $payload = $request->getContent();
+
+    //     // 3. Calculer la signature attendue avec la clé secrète
+    //     $secretKey = config("services.leekpay.secret_key");
+    //     $expectedSignature = hash_hmac("sha256", $payload, $secretKey);
+
+    //     // 4. Comparer les signatures de manière sécurisée
+    //     if (!hash_equals((string) $expectedSignature, (string) $signature)) {
+    //         Log::warning("Signature LeekPay invalide. Webhook rejeté.");
+    //         return response()->json(["error" => "Invalid signature"], 401);
+    //     }
+
+    //     // 5. Analyser les données du paiement
+    //     $data = json_decode($payload, true);
+
+    //     if (!$data || !isset($data["data"])) {
+    //         Log::warning("Payload webhook LeekPay invalide ou vide.");
+    //         return response()->json(["error" => "Invalid payload"], 400);
+    //     }
+
+    //     $status = $data["data"]["status"] ?? null;
+    //     $paymentId = $data["data"]["payment_id"] ?? null;
+
+    //     if ($status === "paid" && $paymentId) {
+    //         $order = Order::where("payment_reference", $paymentId)->first();
+
+    //         if ($order) {
+    //             $order->update([
+    //                 "payment_status" => "paid",
+    //                 "status" => "paid",
+    //                 "payment_reference" => $paymentId,
+    //             ]);
+
+    //             Log::info(
+    //                 "Commande payée via webhook LeekPay : " . $order->reference,
+    //             );
+    //         }
+    //     } elseif (in_array($status, ["failed", "cancelled"])) {
+    //         $order = Order::where("payment_reference", $paymentId)->first();
+
+    //         if ($order) {
+    //             $order->update(["payment_status" => $status]);
+    //             Log::warning(
+    //                 "Paiement " .
+    //                     $status .
+    //                     " pour commande : " .
+    //                     ($order->reference ?? $paymentId),
+    //             );
+    //         }
+    //     }
+
+    //     return response()->json(["status" => "OK"], 200);
+    // }
+
+
+    // ── Webhook LeekPay ──────────────────────────────
     public function webhook(Request $request)
     {
-        // 1. Récupérer la signature envoyée par LeekPay
+        // 1. Récupérer la signature et le payload brut
         $signature = $request->header("X-LeekPay-Signature");
+        $payload   = $request->getContent();
 
-        // 2. Récupérer le corps brut de la requête
-        $payload = $request->getContent();
+        // 2. Vérifier avec la CLÉ PUBLIQUE (pk_live_xxx)
+        $publicKey         = config("services.leekpay.public_key");
+        $expectedSignature = hash_hmac("sha256", $payload, $publicKey);
 
-        // 3. Calculer la signature attendue avec la clé secrète
-        $secretKey = config("services.leekpay.secret_key");
-        $expectedSignature = hash_hmac("sha256", $payload, $secretKey);
-
-        // 4. Comparer les signatures de manière sécurisée
         if (!hash_equals((string) $expectedSignature, (string) $signature)) {
-            Log::warning("Signature LeekPay invalide. Webhook rejeté.");
+            Log::warning("LeekPay Webhook : signature invalide", [
+                "received" => $signature,
+                "expected" => $expectedSignature,
+            ]);
             return response()->json(["error" => "Invalid signature"], 401);
         }
 
-        // 5. Analyser les données du paiement
+        // 3. Parser le payload
         $data = json_decode($payload, true);
 
-        if (!$data || !isset($data["data"])) {
-            Log::warning("Payload webhook LeekPay invalide ou vide.");
+        if (!$data || !isset($data["transaction"])) {
+            Log::warning("LeekPay Webhook : payload invalide", ["raw" => $payload]);
             return response()->json(["error" => "Invalid payload"], 400);
         }
 
-        $status = $data["data"]["status"] ?? null;
-        $paymentId = $data["data"]["payment_id"] ?? null;
+        $event       = $data["event"] ?? null;          // "payment.success"
+        $transaction = $data["transaction"];
+        $paymentId   = (string) ($transaction["id"] ?? null);
+        $status      = $transaction["status"] ?? null;  // "completed"
 
-        if ($status === "paid" && $paymentId) {
-            $order = Order::where("payment_reference", $paymentId)->first();
+        Log::info("LeekPay Webhook reçu", [
+            "event"      => $event,
+            "payment_id" => $paymentId,
+            "status"     => $status,
+        ]);
 
-            if ($order) {
-                $order->update([
-                    "payment_status" => "paid",
-                    "status" => "paid",
-                    "payment_reference" => $paymentId,
-                ]);
+        // 4. Retrouver la commande
+        $order = Order::where("payment_reference", $paymentId)->first();
 
-                Log::info(
-                    "Commande payée via webhook LeekPay : " . $order->reference,
-                );
-            }
-        } elseif (in_array($status, ["failed", "cancelled"])) {
-            $order = Order::where("payment_reference", $paymentId)->first();
-
-            if ($order) {
-                $order->update(["payment_status" => $status]);
-                Log::warning(
-                    "Paiement " .
-                        $status .
-                        " pour commande : " .
-                        ($order->reference ?? $paymentId),
-                );
-            }
+        if (!$order) {
+            Log::warning("LeekPay Webhook : commande introuvable", [
+                "payment_id" => $paymentId
+            ]);
+            // On retourne 200 quand même (évite les retries inutiles)
+            return response()->json(["status" => "order_not_found"], 200);
         }
 
+        // 5. Idempotence — éviter le double traitement
+        if ($order->payment_status === "paid") {
+            Log::info("LeekPay Webhook : déjà traité", ["order" => $order->reference]);
+            return response()->json(["status" => "already_processed"], 200);
+        }
+
+        // 6. Mettre à jour selon le statut
+        match ($event) {
+            "payment.success" => $this->markAsPaid($order, $transaction),
+            "payment.failed"  => $order->update(["payment_status" => "failed"]),
+            "payment.cancelled" => $order->update(["payment_status" => "cancelled"]),
+            default => Log::info("LeekPay Webhook : événement non géré : " . $event)
+        };
+
         return response()->json(["status" => "OK"], 200);
+    }
+
+    private function markAsPaid(Order $order, array $transaction): void
+    {
+        $order->update([
+            "payment_status" => "paid",
+            "status"         => "paid",
+            "paid_at"        => now(),
+            "paid_amount"    => $transaction["amount"] ?? null,
+        ]);
+
+        Log::info("✅ Commande payée", [
+            "order"    => $order->reference,
+            "amount"   => $transaction["amount"],
+            "customer" => $transaction["customer_email"] ?? null,
+        ]);
+
+        // Envoyer email ici si besoin
+        // Mail::to($transaction['customer_email'])->send(new PaymentConfirmed($order));
     }
 }

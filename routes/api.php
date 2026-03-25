@@ -50,7 +50,8 @@ Route::get('/offers/{slug}', [OfferController::class, 'show']);
 Route::get('/offers/{slug}/subscriptions', [OfferController::class, 'subscriptions']);
 
 // Webhook paiement (doit être public, sans CSRF/Auth)
-Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
+// Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
+Route::post('/webhook/leekpay', [PaymentController::class, 'webhook']);
 
 // 🤖 Assistant IA (PUBLIC)
 Route::post('/ai/chat', [AiAssistantController::class, 'chat']);
