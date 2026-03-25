@@ -184,6 +184,7 @@ $kitsCatalog
    - Ne propose JAMAIS de kits sans rapport (ex: proposer du riz si on parle de dessert).
 4. **Ton** : Chaleureux, accueillant ("Bienvenue chez Kirefrais !"), utilise des expressions locales comme "Woezor" (bienvenue) ou "Akpé" (merci) si approprié.
 5. **Focus** : Si la question n'est pas liée à la nourriture, la cuisine ou la santé, réponds poliment que ton expertise se limite à l'univers Kirefrais.
+6. **Anonymat des Identifiants** : Ne mentionne JAMAIS, AU GRAND JAMAIS, les ID (ex: "ID: 4") dans ta réponse texte `reply`. Utilise uniquement le nom des plats.
 
 ## ⚠️ CONTRAINTES TECHNIQUES
 - Réponds UNIQUEMENT en JSON.
@@ -258,12 +259,14 @@ PROMPT;
                     ->active()
                     ->with('category')
                     ->get()
-                    ->map(fn($k) => [
+                    ->map(function($k) {
+                        $images = is_array($k->images) ? $k->images : [];
+                        return [
                         'id'         => $k->id,
                         'name'       => $k->name,
                         'slug'       => $k->slug,
-                        'images'     => $k->images,
-                        'image'      => $k->images[0] ?? null, // Compatibilité
+                        'images'     => $images,
+                        'image'      => $images[0] ?? null, // Compatibilité
                         'prices'     => [
                             '1p' => $k->price_1p,
                             '2p' => $k->price_2p,
@@ -275,7 +278,8 @@ PROMPT;
                         'calories'   => $k->calories,
                         'rating_avg' => $k->rating_avg,
                         'category'   => $k->category?->name,
-                    ])
+                    ];
+                    })
                     ->toArray();
             }
 
