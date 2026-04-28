@@ -73,4 +73,18 @@ class KitController extends Controller
     {
         return response()->json(\App\Models\Category::where('is_active', true)->get());
     }
+
+    public function toggleFavorite(Request $request, $id)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+        $res = $user->favoriteKits()->toggle($id);
+        
+        $isFavorite = count($res['attached']) > 0;
+        
+        return response()->json([
+            'is_favorite' => $isFavorite,
+            'message' => $isFavorite ? 'Ajouté aux favoris' : 'Retiré des favoris'
+        ]);
+    }
 }

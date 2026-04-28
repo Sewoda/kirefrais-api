@@ -8,6 +8,8 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PaymentConfirmed;
 
 class PaymentController extends Controller
 {
@@ -298,6 +300,12 @@ class PaymentController extends Controller
         ]);
 
         // Envoyer email ici si besoin
-        // Mail::to($transaction['customer_email'])->send(new PaymentConfirmed($order));
+        if (!empty($transaction['customer_email'])) {
+            try {
+                Mail::to($transaction['customer_email'])->send(new PaymentConfirmed($order));
+            } catch (\Exception $e) {
+                Log::error("Erreur lors de l'envoi de l'email de confirmation: " . $e->getMessage());
+            }
+        }
     }
 }

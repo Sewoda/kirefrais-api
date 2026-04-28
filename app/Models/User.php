@@ -66,4 +66,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Address::class)->where('is_default', true);
     }
+
+    public function favoriteKits()
+    {
+        return $this->belongsToMany(MealKit::class, 'favorite_meal_kit');
+    }
 }

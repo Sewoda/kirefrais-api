@@ -80,6 +80,54 @@ class AuthController extends Controller
         return new UserResource($user);
     }
 
+    // ── Mise à jour du profil ────────────────────────────────
+    public function updateProfile(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $request->validate([
+            'name'  => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $user->update([
+            'name'  => $request->name,
+            'phone' => $request->phone,
+        ]);
+
+        return response()->json([
+            'message' => 'Profil mis à jour avec succès.',
+            'user'    => new UserResource($user),
+        ]);
+    }
+
+    // ── Mise à jour du mot de passe ───────────────────────────
+    public function updatePassword(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $request->validate([
+            'current_password' => 'required|string',
+            'password'         => 'required|string|min:8|confirmed',
+        ]);
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Le mot de passe actuel est incorrect.'
+            ], 422);
+        }
+
+        $user->update([
+            'password' => $request->password,
+        ]);
+
+        return response()->json([
+            'message' => 'Mot de passe mis à jour avec succès.'
+        ]);
+    }
+
     // ── Mot de passe oublié (Mock) ────────────────────────────
     public function forgotPassword(Request $request)
     {

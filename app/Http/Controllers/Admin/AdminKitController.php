@@ -41,7 +41,7 @@ class AdminKitController extends Controller
             'category_id'  => 'required|exists:categories,id',
             'name'         => 'required|string|max:150',
             'description'  => 'required|string',
-            'ingredients'  => 'required|string',
+            'ingredients'  => 'required', // Can be array or string
             'prep_time'    => 'required|integer|min:1',
             'difficulty'   => 'required|in:easy,medium,hard',
             'calories'     => 'required|integer|min:0',
@@ -55,9 +55,16 @@ class AdminKitController extends Controller
             'is_vegetarian'=> 'boolean',
             'images'       => 'required|array|min:1',
             'images.*'     => 'url',
+            'video_url'    => 'nullable|url',
+            'recipe_steps' => 'nullable|array',
         ]);
 
-        $kit = MealKit::create($request->all());
+        $data = $request->all();
+        if (is_array($data['ingredients'])) {
+            $data['ingredients'] = implode(', ', $data['ingredients']);
+        }
+
+        $kit = MealKit::create($data);
 
         return response()->json([
             'message' => 'Kit créé avec succès.',
@@ -73,16 +80,24 @@ class AdminKitController extends Controller
             'category_id'  => 'sometimes|exists:categories,id',
             'name'         => 'sometimes|string|max:150',
             'description'  => 'sometimes|string',
-            'ingredients'  => 'sometimes|string',
+            'ingredients'  => 'sometimes',
             'prep_time'    => 'sometimes|integer|min:1',
             'difficulty'   => 'sometimes|in:easy,medium,hard',
             'price_1p'     => 'nullable|numeric|min:0',
             'price_2p'     => 'nullable|numeric|min:0',
             'price_4p'     => 'nullable|numeric|min:0',
             'is_vegetarian'=> 'boolean',
+            'video_url'    => 'nullable|url',
+            'recipe_steps' => 'nullable|array',
+            'images'       => 'sometimes|array',
         ]);
 
-        $kit->update($request->all());
+        $data = $request->all();
+        if (isset($data['ingredients']) && is_array($data['ingredients'])) {
+            $data['ingredients'] = implode(', ', $data['ingredients']);
+        }
+
+        $kit->update($data);
 
         return response()->json([
             'message' => 'Kit mis à jour.',
@@ -110,11 +125,11 @@ class AdminKitController extends Controller
     public function uploadImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpg,jpeg,png,webp|max:3072',
+            'image' => 'required|file|mimes:jpg,jpeg,png,webp,mp4,mov,avi|max:50480', // Allow up to 20MB for videos
         ]);
 
         $path = $request->file('image')->store('kits', 'public');
-        $url  = Storage::url($path);
+        $url  = asset('storage/' . $path);
 
         return response()->json(['url' => $url]);
     }

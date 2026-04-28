@@ -16,6 +16,7 @@ class UserResource extends JsonResource
             'phone'  => $this->phone,
             'avatar' => $this->avatar,
             'role'   => $this->role,
+            'has_active_subscription' => $this->subscriptions()->where('status', 'active')->exists(),
         ];
     }
 }

@@ -14,7 +14,7 @@ class MealKit extends Model
 
     protected $fillable = [
         'category_id', 'name', 'slug', 'description', 'ingredients',
-        'images', 'prep_time', 'difficulty',
+        'images', 'video_url', 'prep_time', 'difficulty',
         'calories', 'proteins', 'carbs', 'fats', 'fiber',
         'price_1p', 'price_2p', 'price_4p',
         'is_vegetarian', 'is_new', 'is_active',
@@ -88,5 +88,10 @@ class MealKit extends Model
     public function scopeVegetarian($query)
     {
         return $query->where('is_vegetarian', true);
+    }
+
+    public function favoritedBy()
+    {
+        return $this->belongsToMany(User::class, 'favorite_meal_kit');
     }
 }

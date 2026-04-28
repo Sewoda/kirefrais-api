@@ -13,7 +13,7 @@ class StoreReviewRequest extends FormRequest
     {
         return [
             'meal_kit_id' => 'required|exists:meal_kits,id',
-            'order_id'    => 'required|exists:orders,id',
+            'order_id'    => 'nullable|exists:orders,id',
             'rating'      => 'required|integer|between:1,5',
             'comment'     => 'nullable|string|max:1000',
             'photo'       => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',

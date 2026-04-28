@@ -4,6 +4,7 @@
 namespace App\Services;
 
 use App\Models\MealKit;
+use App\Models\Offer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -43,7 +44,8 @@ class AiService
     public function chat(string $userMessage, array $history = []): array
     {
         $catalog  = $this->getKitsCatalog();
-        $prompt   = $this->buildSystemPrompt($catalog);
+        $offersCatalog = $this->getOffersCatalog();
+        $prompt   = $this->buildSystemPrompt($catalog, $offersCatalog);
         $messages = [
             ['role' => 'system', 'content' => $prompt],
             ...$history,
@@ -87,7 +89,8 @@ class AiService
     private function callGroq(array $messages, string $model): array
     {
         try {
-            $response = Http::withToken($this->groqKey)
+            $response = Http::withoutVerifying()
+                ->withToken($this->groqKey)
                 ->timeout(25)
                 ->post("{$this->groqBaseUrl}/chat/completions", [
                     'model'           => $model,
@@ -136,7 +139,7 @@ class AiService
 
             $url = "{$this->geminiBaseUrl}/models/{$this->geminiModel}:generateContent?key={$this->geminiKey}";
 
-            $response = Http::timeout(30)->post($url, [
+            $response = Http::withoutVerifying()->timeout(30)->post($url, [
                 'system_instruction' => [
                     'parts' => [['text' => $systemPrompt]],
                 ],
@@ -165,31 +168,34 @@ class AiService
     //  PROMPT SYSTÈME
     // ─────────────────────────────────────────────────────────
 
-    private function buildSystemPrompt(string $kitsCatalog): string
+    private function buildSystemPrompt(string $kitsCatalog, string $offersCatalog): string
     {
         return <<<PROMPT
-Tu es **KirefraisBot**, l'expert culinaire de Kirefrais, le service n°1 de kits repas à Lomé, au Togo.
-Ton but est d'aider les clients à manger sainement, à découvrir des recettes locales et à choisir les meilleurs kits Kirefrais.
+Tu es **KirefraisBot**, l'expert de Kirefrais, le service n°1 d'abonnements de kits repas à Lomé, au Togo.
+Ton but principal est d'orienter les clients vers nos offres d'abonnement (Solo, Duo, Famille, Grande Famille). 
+Tu peux utiliser les plats de notre catalogue pour donner envie, mais explique toujours que nos plats sont disponibles via nos formules d'abonnement.
 
-## 📦 CATALOGUE RÉEL (SOURCE UNIQUE)
-Voici les kits actuellement disponibles en stock. Tu ne dois JAMAIS en inventer d'autres.
+## 📦 CATALOGUE RÉEL DES PLATS (POUR ILLUSTRATION)
+Voici les plats actuellement disponibles.
 $kitsCatalog
 
+## 💳 NOS ABONNEMENTS (OFFRES)
+Voici nos abonnements que tu dois recommander :
+$offersCatalog
+
 ## 🎯 RÈGLES DE RÉPONSE
-1. **Vérité Absolue** : Si l'utilisateur demande "Qu'est-ce qu'il y a ?", liste les noms du catalogue.
-2. **Préparation** : Si on te demande comment cuisiner un plat du catalogue, utilise les ingrédients exacts listés ci-dessus. Pour les étapes, développe les points mentionnés dans "Étapes" pour donner une recette claire.
-3. **Corrélation STRICTE** : Tes recommandations de kits (`kit_ids`) doivent être DIRECTEMENT liées à la demande. 
-   - Si l'utilisateur parle d'un plat spécifique du catalogue, tu DOIS le recommander.
-   - Si la demande est générale (ex: "santé"), choisis les kits les plus adaptés.
-   - Ne propose JAMAIS de kits sans rapport (ex: proposer du riz si on parle de dessert).
+1. **Priorité aux Abonnements** : Propose TOUJOURS nos abonnements (Solo, Duo, Famille, Grande Famille) plutôt que d'acheter des plats à l'unité.
+2. **Exemples de plats** : Utilise les plats du catalogue pour illustrer ce qu'ils pourront manger avec leur abonnement.
+3. **Vérité Absolue** : Ne mentionne que les plats du catalogue ci-dessus.
+4. **Corrélation** : Si l'utilisateur demande "Qu'est-ce qu'il y a ?", liste quelques exemples de plats et propose un abonnement.
 4. **Ton** : Chaleureux, accueillant ("Bienvenue chez Kirefrais !"), utilise des expressions locales comme "Woezor" (bienvenue) ou "Akpé" (merci) si approprié.
 5. **Focus** : Si la question n'est pas liée à la nourriture, la cuisine ou la santé, réponds poliment que ton expertise se limite à l'univers Kirefrais.
-6. **Anonymat des Identifiants** : Ne mentionne JAMAIS, AU GRAND JAMAIS, les ID (ex: "ID: 4") dans ta réponse texte `reply`. Utilise uniquement le nom des plats.
+6. **Anonymat des Identifiants** : Ne mentionne JAMAIS, AU GRAND JAMAIS, les ID (ex: "ID: 4") dans ta réponse texte `reply`. Utilise uniquement le nom des plats et abonnement.
 
 ## ⚠️ CONTRAINTES TECHNIQUES
 - Réponds UNIQUEMENT en JSON.
-- `kit_ids` : Doit contenir entre 1 et 3 IDs issus du catalogue. Ne jamais laisser vide.
-- `steps` : Liste de chaînes de caractères. Format : "Étape X : [Action]".
+- `offer_ids` : Doit contenir entre 1 et 4 IDs issus des abonnements (offres). Ne jamais laisser vide. Recommande toujours l'abonnement le plus adapté (Solo, Duo, etc.).
+- `steps` : Liste de chaînes de caractères. Format : "Étape X : [Action]".  
 
 ## STRUCTURE JSON ATTENDUE
 {
@@ -197,14 +203,14 @@ $kitsCatalog
   "reply": "Ta réponse complète ici...",
   "steps": ["Étape 1 : ...", "Étape 2 : ..."],
   "tips": ["Conseil bonus 1", "Conseil bonus 2"],
-  "kit_ids": [1, 5, 12]
+  "offer_ids": [1, 2]
 }
 
-- "type"    : le type de demande détecté
-- "reply"   : réponse complète en français (markdown accepté)
-- "steps"   : étapes de préparation si pertinent, sinon []
-- "tips"    : 1 à 3 conseils bonus courts, sinon []
-- "kit_ids" : 1 à 3 IDs de kits recommandés, jamais vide
+- "type"      : le type de demande détecté
+- "reply"     : réponse complète en français (markdown accepté)
+- "steps"     : étapes de préparation si pertinent, sinon []
+- "tips"      : 1 à 3 conseils bonus courts, sinon []
+- "offer_ids" : 1 à 4 IDs d'abonnements recommandés, jamais vide
 PROMPT;
     }
 
@@ -240,6 +246,18 @@ PROMPT;
         })->join("\n");
     }
 
+    private function getOffersCatalog(): string
+    {
+        $offers = Offer::where('is_active', true)->get();
+        if ($offers->isEmpty()) return 'Aucun abonnement disponible.';
+
+        return $offers->map(function($o) {
+            return sprintf('ID:%d | Nom:%s | Personnes:%d | Description:%s', 
+                $o->id, $o->name, $o->persons, $o->description
+            );
+        })->join("\n");
+    }
+
     // ─────────────────────────────────────────────────────────
     //  PARSER LA RÉPONSE JSON
     // ─────────────────────────────────────────────────────────
@@ -251,54 +269,42 @@ PROMPT;
         try {
             $parsed = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
 
-            $kitIds = $parsed['kit_ids'] ?? [];
-            $kits   = [];
+            $offerIds = $parsed['offer_ids'] ?? [];
+            $offers   = [];
 
-            if (!empty($kitIds)) {
-                $kits = MealKit::whereIn('id', $kitIds)
-                    ->active()
-                    ->with('category')
+            if (!empty($offerIds)) {
+                $offers = Offer::whereIn('id', $offerIds)
+                    ->where('is_active', true)
                     ->get()
-                    ->map(function($k) {
-                        $images = is_array($k->images) ? $k->images : [];
+                    ->map(function($o) {
                         return [
-                        'id'         => $k->id,
-                        'name'       => $k->name,
-                        'slug'       => $k->slug,
-                        'images'     => $images,
-                        'image'      => $images[0] ?? null, // Compatibilité
-                        'prices'     => [
-                            '1p' => $k->price_1p,
-                            '2p' => $k->price_2p,
-                            '4p' => $k->price_4p,
-                        ],
-                        'price_1p'   => $k->price_1p,
-                        'prep_time'  => $k->prep_time,
-                        'difficulty' => $k->difficulty,
-                        'calories'   => $k->calories,
-                        'rating_avg' => $k->rating_avg,
-                        'category'   => $k->category?->name,
-                    ];
+                            'id'          => $o->id,
+                            'name'        => $o->name,
+                            'slug'        => $o->slug,
+                            'persons'     => $o->persons,
+                            'icon'        => $o->icon,
+                            'description' => $o->description,
+                        ];
                     })
                     ->toArray();
             }
 
             return [
-                'type'  => $parsed['type']  ?? 'conseil',
-                'reply' => $parsed['reply'] ?? '',
-                'steps' => $parsed['steps'] ?? [],
-                'tips'  => $parsed['tips']  ?? [],
-                'kits'  => $kits,
+                'type'   => $parsed['type']  ?? 'conseil',
+                'reply'  => $parsed['reply'] ?? '',
+                'steps'  => $parsed['steps'] ?? [],
+                'tips'   => $parsed['tips']  ?? [],
+                'offers' => $offers,
             ];
 
         } catch (\JsonException $e) {
             Log::error('AiService JSON parse error: ' . $e->getMessage());
             return [
-                'type'  => 'conseil',
-                'reply' => $content,
-                'steps' => [],
-                'tips'  => [],
-                'kits'  => [],
+                'type'   => 'conseil',
+                'reply'  => $content,
+                'steps'  => [],
+                'tips'   => [],
+                'offers' => [],
             ];
         }
     }
@@ -306,11 +312,11 @@ PROMPT;
     private function errorResponse(): array
     {
         return [
-            'type'  => 'error',
-            'reply' => 'Je suis temporairement indisponible. Réessayez dans quelques instants.',
-            'steps' => [],
-            'tips'  => [],
-            'kits'  => [],
+            'type'   => 'error',
+            'reply'  => 'Je suis temporairement indisponible. Réessayez dans quelques instants.',
+            'steps'  => [],
+            'tips'   => [],
+            'offers' => [],
         ];
     }
 }

@@ -53,8 +53,8 @@ class AiAssistantController extends Controller
                 'metadata' => [
                     'type'    => $response['type'],
                     'steps'   => $response['steps'],
-                    'tips'    => $response['tips'],
-                    'kit_ids' => array_column($response['kits'], 'id'),
+                    'tips'      => $response['tips'],
+                    'offer_ids' => array_column($response['offers'], 'id'),
                 ],
             ]);
 
@@ -67,7 +67,7 @@ class AiAssistantController extends Controller
             'type'            => $response['type'],
             'steps'           => $response['steps'],
             'tips'            => $response['tips'],
-            'kits'            => $response['kits'],
+            'offers'          => $response['offers'],
         ]);
     }
 

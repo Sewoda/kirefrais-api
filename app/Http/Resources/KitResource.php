@@ -35,6 +35,7 @@ class KitResource extends JsonResource
             'rating_avg'    => $this->rating_avg,
             'rating_count'  => $this->rating_count,
             'category_id'   => $this->category_id,
+            'video_url'     => $this->video_url,
             'recipe_steps'  => $this->recipe_steps,
             'category'      => $this->whenLoaded('category', fn() => [
                 'id'   => $this->category->id,

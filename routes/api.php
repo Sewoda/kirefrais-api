@@ -66,6 +66,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
     });
 
+    Route::put('/user/profile', [AuthController::class, 'updateProfile']);
+    Route::put('/user/password', [AuthController::class, 'updatePassword']);
+
+    // Favoris
+    Route::post('/kits/{id}/favorite', [KitController::class, 'toggleFavorite']);
+
     // Adresses
     Route::apiResource('addresses', AddressController::class);
     Route::get('/zones', function() {
