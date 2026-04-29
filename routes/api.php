@@ -30,7 +30,7 @@ use App\Http\Controllers\Admin\AdminReviewController;
 
 // 🔓 ROUTES PUBLIQUES
 Route::post('/auth/register', [AuthController::class, 'register']);
-Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/login', [AuthController::class, 'login'])->name('login');
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
 
 // 🌐 AUTH SOCIALE
