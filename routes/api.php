@@ -73,7 +73,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/kits/{id}/favorite', [KitController::class, 'toggleFavorite']);
 
     // Adresses
-    Route::apiResource('addresses', AddressController::class);
+    Route::get('/addresses', [AddressController::class, 'index']);
+    Route::post('/addresses', [AddressController::class, 'store']);
+    Route::put('/addresses/{address}', [AddressController::class, 'update']);
+    Route::delete('/addresses/{address}', [AddressController::class, 'destroy']);
     Route::get('/zones', function() {
         return response()->json(\App\Models\DeliveryZone::all());
     });

@@ -22,6 +22,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'is.livreur' => \App\Http\Middleware\IsLivreur::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
+    ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->shouldRenderJsonWhen(fn () => true);
     })->create();
