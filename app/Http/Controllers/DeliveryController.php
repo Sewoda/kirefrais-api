@@ -75,4 +75,42 @@ class DeliveryController extends Controller
 
         return response()->json(['message' => 'Livraison terminée.']);
     }
+
+    // ── Statistiques du livreur ──────────────────────────────
+    public function stats(Request $request)
+    {
+        $user = $request->user();
+        
+        $totalDeliveries = Order::forDeliverer($user->id)
+            ->where('status', 'delivered')
+            ->count();
+            
+        $todayDeliveries = Order::forDeliverer($user->id)
+            ->where('status', 'delivered')
+            ->whereDate('delivered_at', now())
+            ->count();
+            
+        $pendingDeliveries = Order::forDeliverer($user->id)
+            ->whereIn('status', ['ready', 'delivering'])
+            ->count();
+
+        return response()->json([
+            'total_delivered' => $totalDeliveries,
+            'today_delivered' => $todayDeliveries,
+            'pending'         => $pendingDeliveries,
+            'rating'          => 4.8, // Valeur factice pour le moment
+        ]);
+    }
+
+    // ── Historique des livraisons ────────────────────────────
+    public function history(Request $request)
+    {
+        $orders = Order::forDeliverer($request->user()->id)
+            ->where('status', 'delivered')
+            ->with(['items.kit', 'address'])
+            ->latest('delivered_at')
+            ->paginate(15);
+
+        return OrderResource::collection($orders);
+    }
 }

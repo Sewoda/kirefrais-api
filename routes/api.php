@@ -112,7 +112,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // 🛵 ESPACE LIVREUR
     Route::middleware('is.livreur')->prefix('livreur')->group(function () {
+        Route::get('/stats', [DeliveryController::class, 'stats']);
         Route::get('/deliveries', [DeliveryController::class, 'index']);
+        Route::get('/history', [DeliveryController::class, 'history']);
         Route::patch('/deliveries/{id}/take', [DeliveryController::class, 'take']);
         Route::post('/deliveries/{id}/location', [DeliveryController::class, 'updateLocation']);
         Route::patch('/deliveries/{id}/complete', [DeliveryController::class, 'complete']);
