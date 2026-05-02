@@ -56,6 +56,9 @@ Route::post('/webhook/leekpay', [PaymentController::class, 'webhook']);
 // 🤖 Assistant IA (PUBLIC)
 Route::post('/ai/chat', [AiAssistantController::class, 'chat']);
 
+// 🎫 Codes Promo (PUBLIC)
+Route::post('/promos/validate', [\App\Http\Controllers\PromoCodeController::class, 'validateCode']);
+
 
 // 🔐 ROUTES PROTÉGÉES (Connecté)
 Route::middleware('auth:sanctum')->group(function () {
