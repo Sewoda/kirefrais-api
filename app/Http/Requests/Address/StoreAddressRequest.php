@@ -14,7 +14,7 @@ class StoreAddressRequest extends FormRequest
         return [
             'label'            => 'required|string|max:50',
             'delivery_zone_id' => 'required|exists:delivery_zones,id',
-            'address_text'     => 'required|string|min:5',
+            'address_text'     => 'required|string',
             'landmark'         => 'nullable|string|max:200',
             'latitude'         => 'nullable|numeric|between:-90,90',
             'longitude'        => 'nullable|numeric|between:-180,180',

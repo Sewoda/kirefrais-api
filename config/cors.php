@@ -12,9 +12,8 @@ return [
     'allowed_origins' => [
         'http://localhost:3000',         // Nuxt.js en développement
         'http://localhost:3001',         // Port alternatif Nuxt
-        'https://kirefrais.com',     // Production
-        'https://www.kirefrais.com', // Production www
-        'https://www.kirifrais.com', // Production www
+        'https://kirefrais.com',         // Production
+        'https://www.kirefrais.com',     // Production www
         "https://kirefrais.netlify.app",
     ],
     'allowed_origins_patterns' => [
