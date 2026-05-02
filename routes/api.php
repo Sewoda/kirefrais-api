@@ -189,6 +189,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/offers/{id}',         [AdminOfferController::class, 'destroy']);
         Route::put('/offers/{id}/toggle',     [AdminOfferController::class, 'toggle']);
 
+        // Gestion des Administrateurs
+        Route::get('/admins',              [\App\Http\Controllers\Admin\AdminManagementController::class, 'index']);
+        Route::post('/admins',             [\App\Http\Controllers\Admin\AdminManagementController::class, 'store']);
+        Route::put('/admins/{id}',         [\App\Http\Controllers\Admin\AdminManagementController::class, 'update']);
+        Route::delete('/admins/{id}',      [\App\Http\Controllers\Admin\AdminManagementController::class, 'destroy']);
+        Route::put('/admins/{id}/toggle',  [\App\Http\Controllers\Admin\AdminManagementController::class, 'toggleStatus']);
+
         // Formules d'abonnement (sub-resources)
         Route::post('/offers/{offerId}/subscriptions',      [AdminOfferController::class, 'storeSubscription']);
         Route::put('/subscriptions/{subId}',                [AdminOfferController::class, 'updateSubscription']);
