@@ -40,7 +40,11 @@ return [
 
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
+            // En production (sur LWS), on pointe vers htdocs/apiv1.kirefrais.com/storage
+            // En local, on garde le comportement normal (storage/app/public)
+            'root' => env('APP_ENV') === 'production' 
+                        ? base_path('../apiv1.kirefrais.com/storage') 
+                        : storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
             'throw' => false,
