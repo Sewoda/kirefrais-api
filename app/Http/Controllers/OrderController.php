@@ -106,11 +106,16 @@ class OrderController extends Controller
         ]);
 
         foreach ($request->items as $item) {
+            $kit = \App\Models\MealKit::find($item['meal_kit_id']);
+            // Si c'est un abonné qui utilise son quota, le prix unitaire est 0 (car inclus dans le pack déjà payé)
+            $unitPrice = ($user->has_active_subscription && !$request->selected_pack_id) ? 0 : ($kit->price ?? 0);
+            
             $order->items()->create([
                 'meal_kit_id' => $item['meal_kit_id'],
                 'portions'    => $item['portions'],
                 'quantity'    => $item['quantity'],
-                'price'       => \App\Models\MealKit::find($item['meal_kit_id'])->price ?? 0,
+                'unit_price'  => $unitPrice,
+                'total_price' => $unitPrice * $item['quantity'],
             ]);
         }
 
