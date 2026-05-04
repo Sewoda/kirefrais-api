@@ -67,6 +67,31 @@ class User extends Authenticatable
         return $this->hasOne(Address::class)->where('is_default', true);
     }
 
+    protected $appends = ['has_active_subscription', 'weekly_kit_quota'];
+
+    /**
+     * Check if user has at least one active subscription.
+     */
+    public function getHasActiveSubscriptionAttribute(): bool
+    {
+        return $this->subscriptions()->where('status', 'active')->exists();
+    }
+
+    /**
+     * Calculate the total number of kits allowed per week.
+     * Legacy subscriptions (with meal_kit_id) count as 1.
+     * Pack-based subscriptions use meals_per_week column.
+     */
+    public function getWeeklyKitQuotaAttribute(): int
+    {
+        $activeSubs = $this->subscriptions()->where('status', 'active')->get();
+        
+        return $activeSubs->reduce(function ($carry, $sub) {
+            // Si c'est un pack (meals_per_week défini), on utilise sa valeur, sinon 1 kit par défaut
+            return $carry + ($sub->meals_per_week ?? ($sub->meal_kit_id ? 1 : 0));
+        }, 0);
+    }
+
     public function favoriteKits()
     {
         return $this->belongsToMany(MealKit::class, 'favorite_meal_kit');

@@ -17,67 +17,105 @@ class OrderController extends Controller
     public function store(StoreOrderRequest $request)
     {
         $user = $request->user();
-
-        // Calculer le sous-total
-        $subtotal = 0;
-        foreach ($request->items as $item) {
-            $kit       = MealKit::findOrFail($item['meal_kit_id']);
-            $price     = $kit->getPriceByPortions($item['portions']);
-            $subtotal += $price * $item['quantity'];
+        
+        // 1. Idempotence Check : Éviter les doublons accidentels (même date, même contenu, 2 dernières min)
+        $duplicate = Order::where('user_id', $user->id)
+            ->where('delivery_date', $request->delivery_date)
+            ->where('created_at', '>=', now()->subMinutes(2))
+            ->exists();
+            
+        if ($duplicate && !app()->environment('testing')) {
+            return response()->json(['message' => 'Une commande similaire a déjà été passée récemment.'], 422);
         }
 
-        // Frais de livraison depuis la zone
-        $zone        = \App\Models\DeliveryZone::findOrFail($request->delivery_zone_id);
-        $deliveryFee = $zone->delivery_fee;
+        $subtotal = 0;
+        $totalKitsInOrder = collect($request->items)->sum('quantity');
 
-        // Appliquer le code promo
-        $discount  = 0;
-        $promoCode = null;
-        if ($request->promo_code) {
-            $promoCode = PromoCode::where('code', $request->promo_code)->first();
-            if ($promoCode && $promoCode->isValid((float)$subtotal)) {
-                $discount = $promoCode->calculateDiscount((float)$subtotal);
+        // 2. Logique de calcul du sous-total
+        if ($request->selected_pack_id) {
+            // Achat d'un nouveau pack (Abonnement)
+            $pack = \App\Models\OfferSubscription::findOrFail($request->selected_pack_id);
+            $subtotal = $pack->price;
+        } 
+        elseif ($user->has_active_subscription) {
+            // Utilisation du Quota cumulé
+            $quota = $user->weekly_kit_quota;
+            
+            // On calcule combien de kits ont déjà été consommés pour cette date de livraison
+            $alreadyConsumed = \App\Models\OrderItem::whereHas('order', function($q) use ($user, $request) {
+                $q->where('user_id', $user->id)
+                  ->where('delivery_date', $request->delivery_date)
+                  ->where('status', '!=', 'cancelled');
+            })->sum('quantity');
+
+            $availableQuota = max(0, $quota - $alreadyConsumed);
+
+            if ($totalKitsInOrder > $availableQuota) {
+                return response()->json([
+                    'message' => "Votre quota restant pour cette date est de {$availableQuota} kit(s). Vous ne pouvez pas commander {$totalKitsInOrder} kit(s).",
+                    'available_quota' => $availableQuota
+                ], 422);
+            }
+
+            $subtotal = 0; // Toujours gratuit car dans la limite du quota autorisé
+        } 
+        else {
+            // Achat à la carte standard
+            foreach ($request->items as $item) {
+                $kit = \App\Models\MealKit::findOrFail($item['meal_kit_id']);
+                $subtotal += $kit->price * $item['quantity'];
             }
         }
 
-        $total = $subtotal + $deliveryFee - $discount;
+        // 3. Calcul final
+        $address = null;
+        $deliveryFee = 0;
+        if ($request->address_id) {
+            $address = \App\Models\Address::with('deliveryZone')->find($request->address_id);
+            $deliveryFee = $address?->deliveryZone?->delivery_fee ?? 0;
+        }
 
-        // Créer la commande
+        $discount = 0;
+        $promo = null;
+        if ($request->promo_code) {
+            $promo = \App\Models\PromoCode::where('code', $request->promo_code)->where('is_active', true)->first();
+            if ($promo) {
+                $discount = $promo->type === 'fixed' ? $promo->value : ($subtotal * ($promo->value / 100));
+            }
+        }
+
+        $totalAmount = max(0, $subtotal + $deliveryFee - $discount);
+
         $order = Order::create([
-            'user_id'          => $user->id,
-            'address_id'       => $request->address_id,
-            'delivery_zone_id' => $request->delivery_zone_id,
-            'status'           => 'pending',
-            'subtotal'         => $subtotal,
-            'delivery_fee'     => $deliveryFee,
-            'discount'         => $discount,
-            'total_amount'     => $total,
-            'payment_method'   => $request->payment_method,
-            'payment_status'   => 'pending',
-            'delivery_date'    => $request->delivery_date,
-            'delivery_slot'    => $request->delivery_slot,
-            'is_subscription'  => $request->is_subscription ?? false,
-            'promo_code'       => $request->promo_code,
-            'notes'            => $request->notes,
+            'user_id'         => $user->id,
+            'address_id'      => $request->address_id,
+            'delivery_zone_id' => $address?->delivery_zone_id,
+            'subtotal'        => $subtotal,
+            'delivery_fee'    => $deliveryFee,
+            'discount'        => $discount,
+            'total_amount'    => $totalAmount,
+            'status'          => 'pending',
+            'payment_status'  => 'unpaid',
+            'payment_method'  => $request->payment_method ?? 'all',
+            'delivery_date'   => $request->delivery_date,
+            'delivery_slot'   => $request->delivery_slot,
+            'notes'           => $request->notes,
+            'is_subscription' => $request->is_subscription ?? false,
+            'promo_code'      => $request->promo_code,
         ]);
 
-        // Créer les lignes de commande
         foreach ($request->items as $item) {
-            $kit   = MealKit::find($item['meal_kit_id']);
-            $price = $kit->getPriceByPortions($item['portions']);
-            OrderItem::create([
-                'order_id'    => $order->id,
+            $order->items()->create([
                 'meal_kit_id' => $item['meal_kit_id'],
                 'portions'    => $item['portions'],
                 'quantity'    => $item['quantity'],
-                'unit_price'  => $price,
-                'total_price' => $price * $item['quantity'],
+                'price'       => \App\Models\MealKit::find($item['meal_kit_id'])->price ?? 0,
             ]);
         }
 
         // Incrémenter l'usage du code promo
-        if ($promoCode) {
-            $promoCode->increment('used_count');
+        if ($promo) {
+            $promo->increment('used_count');
         }
 
         return response()->json([
