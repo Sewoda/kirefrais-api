@@ -96,7 +96,7 @@ class OrderController extends Controller
             'discount'        => $discount,
             'total_amount'    => $totalAmount,
             'status'          => 'pending',
-            'payment_status'  => 'unpaid',
+            'payment_status'  => 'pending',
             'payment_method'  => $request->payment_method ?? 'all',
             'delivery_date'   => $request->delivery_date,
             'delivery_slot'   => $request->delivery_slot,
