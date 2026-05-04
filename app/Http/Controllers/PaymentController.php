@@ -77,11 +77,11 @@ class PaymentController extends Controller
             Log::info("Réponse LeekPay", ["data" => $data]);
 
             if (isset($data["data"]["payment_url"])) {
-                $paymentId = $data["data"]["payment_id"] ?? null;
+                $paymentId = $data["data"]["id"] ?? null;
 
                 // Sauvegarder la référence du paiement sur la commande
                 if ($paymentId) {
-                    $order->update(["payment_reference" => $paymentId]);
+                    $order->update(["payment_reference" => (string) $paymentId]);
                 }
 
                 return response()->json([
