@@ -299,6 +299,25 @@ class PaymentController extends Controller
             "customer" => $transaction["customer_email"] ?? null,
         ]);
 
+        // ── ACTIVATION DE L'ABONNEMENT (si c'est un achat de pack) ──
+        if ($order->offer_subscription_id) {
+            $pack = \App\Models\OfferSubscription::find($order->offer_subscription_id);
+            if ($pack) {
+                \App\Models\Subscription::create([
+                    'user_id'               => $order->user_id,
+                    'offer_subscription_id' => $pack->id,
+                    'address_id'            => $order->address_id,
+                    'meals_per_week'        => $pack->meals_per_week,
+                    'portions'              => $pack->portions,
+                    'delivery_slot'         => $order->delivery_slot,
+                    'next_delivery_date'    => $order->delivery_date, 
+                    'status'                => 'active',
+                    'expires_at'            => now()->addWeeks($pack->duration_weeks ?? 1),
+                ]);
+                Log::info("⭐ Abonnement activé pour l'utilisateur " . $order->user_id);
+            }
+        }
+
         // Envoyer email ici si besoin
         if (!empty($transaction['customer_email'])) {
             try {

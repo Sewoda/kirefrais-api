@@ -84,12 +84,13 @@ class User extends Authenticatable
      */
     public function getWeeklyKitQuotaAttribute(): int
     {
-        $activeSubs = $this->subscriptions()->where('status', 'active')->get();
-        
-        return $activeSubs->reduce(function ($carry, $sub) {
-            // Si c'est un pack (meals_per_week défini), on utilise sa valeur, sinon 1 kit par défaut
-            return $carry + ($sub->meals_per_week ?? ($sub->meal_kit_id ? 1 : 0));
-        }, 0);
+        return $this->subscriptions()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            })
+            ->sum('meals_per_week');
     }
 
     public function favoriteKits()

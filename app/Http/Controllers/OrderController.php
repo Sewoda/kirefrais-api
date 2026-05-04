@@ -88,6 +88,7 @@ class OrderController extends Controller
 
         $order = Order::create([
             'user_id'         => $user->id,
+            'offer_subscription_id' => $request->selected_pack_id,
             'address_id'      => $request->address_id,
             'delivery_zone_id' => $address?->delivery_zone_id,
             'subtotal'        => $subtotal,

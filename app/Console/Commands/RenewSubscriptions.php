@@ -13,18 +13,42 @@ class RenewSubscriptions extends Command
 
     public function handle()
     {
-        $this->info('🚀 Démarrage du renouvellement des abonnements...');
+        $this->info('🚀 Démarrage de la gestion des abonnements...');
 
-        // On récupère les abonnements actifs dont la date de livraison prévue est passée ou aujourd'hui
-        $subscriptions = Subscription::where('status', 'active')
+        // 1. EXPIRATION : On expire ceux qui ont dépassé leur date
+        $expiredCount = Subscription::where('status', 'active')
+            ->where('expires_at', '<', now())
+            ->update(['status' => 'expired']);
+            
+        if ($expiredCount > 0) {
+            $this->warn("⚠️ {$expiredCount} abonnements ont expiré.");
+        }
+
+        // 2. NOTIFICATION : On prévient ceux qui expirent dans moins de 24h
+        $expiringSoon = Subscription::where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->where('expires_at', '<', now()->addDay())
+            ->get();
+
+        foreach ($expiringSoon as $sub) {
+            try {
+                \Illuminate\Support\Facades\Mail::to($sub->user->email)
+                    ->send(new \App\Mail\SubscriptionExpiring($sub->user, $sub));
+                $this->line("📧 Email d'expiration envoyé à : {$sub->user->email}");
+            } catch (\Exception $e) {
+                $this->error("❌ Erreur email pour User {$sub->user_id}: " . $e->getMessage());
+            }
+        }
+
+        // 3. RENOUVELLEMENT DE CYCLE (Date de livraison)
+        $toUpdate = Subscription::where('status', 'active')
             ->where('next_delivery_date', '<=', now()->endOfDay())
             ->get();
 
-        $count = 0;
-        foreach ($subscriptions as $sub) {
+        $renewCount = 0;
+        foreach ($toUpdate as $sub) {
             $currentDate = Carbon::parse($sub->next_delivery_date);
             
-            // Calculer la prochaine date selon la fréquence
             $nextDate = match($sub->frequency) {
                 'weekly'   => $currentDate->addWeek(),
                 'biweekly' => $currentDate->addWeeks(2),
@@ -35,10 +59,10 @@ class RenewSubscriptions extends Command
             $sub->next_delivery_date = $nextDate;
             $sub->save();
 
-            $this->line("✅ Abonnement #{$sub->id} (User: {$sub->user_id}) -> Prochaine livraison : {$nextDate->format('d/m/Y')}");
-            $count++;
+            $this->line("✅ Cycle mis à jour #{$sub->id} -> Prochaine livraison : {$nextDate->format('d/m/Y')}");
+            $renewCount++;
         }
 
-        $this->info("✨ Fin du traitement. {$count} abonnements mis à jour.");
+        $this->info("✨ Fin du traitement. {$renewCount} cycles mis à jour.");
     }
 }

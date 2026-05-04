@@ -8,10 +8,11 @@ class Subscription extends Model
 {
     protected $fillable = [
         'user_id','meal_kit_id','offer_subscription_id','address_id','portions','frequency',
-        'delivery_slot','status','next_delivery_date','pause_weeks', 'meals_per_week'
+        'delivery_slot','status','expires_at','next_delivery_date','pause_weeks', 'meals_per_week'
     ];
     protected $casts = [
         'next_delivery_date' => 'date',
+        'expires_at' => 'datetime',
         'meals_per_week' => 'integer'
     ];
 

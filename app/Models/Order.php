@@ -11,7 +11,7 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'reference', 'user_id', 'address_id', 'delivery_zone_id', 'deliverer_id',
+        'reference', 'user_id', 'offer_subscription_id', 'address_id', 'delivery_zone_id', 'deliverer_id',
         'status', 'subtotal', 'delivery_fee', 'discount', 'total_amount',
         'payment_method', 'payment_status', 'payment_reference',
         'delivery_date', 'delivery_slot', 'delivered_at',

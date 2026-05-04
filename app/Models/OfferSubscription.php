@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class OfferSubscription extends Model
 {
     protected $fillable = [
-        'offer_id', 'name', 'slug', 'meals_per_week', 'price',
+        'offer_id', 'name', 'slug', 'meals_per_week', 'duration_weeks', 'price',
         'description', 'features', 'popular', 'is_active', 'sort_order'
     ];
 
