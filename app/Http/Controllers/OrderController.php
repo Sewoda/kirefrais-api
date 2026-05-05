@@ -31,17 +31,23 @@ class OrderController extends Controller
         $subtotal = 0;
         $totalKitsInOrder = collect($request->items)->sum('quantity');
 
-        // 2. Logique de calcul du sous-total
+        // 2. Logique de calcul du sous-total (Abonnement uniquement)
         if ($request->selected_pack_id) {
-            // Achat d'un nouveau pack (Abonnement)
+            // Achat d'un NOUVEAU pack
             $pack = \App\Models\OfferSubscription::findOrFail($request->selected_pack_id);
             $subtotal = $pack->price;
         } 
         elseif ($user->has_active_subscription) {
-            // Utilisation du Quota cumulé
+            // Utilisation d'un pack EXISTANT
             $quota = $user->weekly_kit_quota;
+
+            if ($quota <= 0) {
+                return response()->json([
+                    'message' => "Votre abonnement est épuisé ou expiré. Veuillez en racheter un.",
+                ], 422);
+            }
             
-            // On calcule combien de kits ont déjà été consommés pour cette date de livraison
+            // Calcul de la consommation pour cette date
             $alreadyConsumed = \App\Models\OrderItem::whereHas('order', function($q) use ($user, $request) {
                 $q->where('user_id', $user->id)
                   ->where('delivery_date', $request->delivery_date)
@@ -52,19 +58,17 @@ class OrderController extends Controller
 
             if ($totalKitsInOrder > $availableQuota) {
                 return response()->json([
-                    'message' => "Votre quota restant pour cette date est de {$availableQuota} kit(s). Vous ne pouvez pas commander {$totalKitsInOrder} kit(s).",
-                    'available_quota' => $availableQuota
+                    'message' => "Quota insuffisant pour cette date. Disponible : {$availableQuota} kit(s).",
                 ], 422);
             }
 
-            $subtotal = 0; // Toujours gratuit car dans la limite du quota autorisé
+            $subtotal = 0; // Inclus dans l'abonnement
         } 
         else {
-            // Achat à la carte standard
-            foreach ($request->items as $item) {
-                $kit = \App\Models\MealKit::findOrFail($item['meal_kit_id']);
-                $subtotal += $kit->price * $item['quantity'];
-            }
+            // Ni pack sélectionné, ni abonnement actif
+            return response()->json([
+                'message' => "Vous devez sélectionner un abonnement pour commander.",
+            ], 422);
         }
 
         // 3. Calcul final
