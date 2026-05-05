@@ -84,13 +84,41 @@ class User extends Authenticatable
      */
     public function getWeeklyKitQuotaAttribute(): int
     {
-        return $this->subscriptions()
+        $activeSubs = $this->subscriptions()
             ->where('status', 'active')
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                       ->orWhere('expires_at', '>', now());
             })
-            ->sum('meals_per_week');
+            ->with('offerSubscription')
+            ->get();
+
+        $totalQuota = 0;
+
+        foreach ($activeSubs as $sub) {
+            $pack = $sub->offerSubscription;
+            if (!$pack) {
+                $totalQuota += $sub->meals_per_week;
+                continue;
+            }
+
+            // Calcul du budget total (ex: 3 kits/semaine * 4 semaines = 12 kits)
+            $totalBudget = $sub->meals_per_week * ($pack->duration_weeks ?? 1);
+
+            // Nombre de kits déjà commandés sous cet abonnement (unit_price = 0 signifie "Inclus")
+            $consumed = \App\Models\OrderItem::whereHas('order', function($q) use ($sub) {
+                $q->where('user_id', $this->id)
+                  ->where('created_at', '>=', $sub->created_at)
+                  ->where('status', '!=', 'cancelled');
+            })->where('unit_price', 0)->sum('quantity');
+
+            // Si le budget n'est pas épuisé, on accorde le quota hebdomadaire
+            if ($consumed < $totalBudget) {
+                $totalQuota += $sub->meals_per_week;
+            }
+        }
+
+        return $totalQuota;
     }
 
     public function favoriteKits()

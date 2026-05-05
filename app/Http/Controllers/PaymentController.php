@@ -18,7 +18,7 @@ class PaymentController extends Controller
     {
         $client = Http::timeout(30)->withHeaders([
             "Authorization" =>
-                "Bearer " . config("services.leekpay.secret_key"),
+            "Bearer " . config("services.leekpay.secret_key"),
             "Content-Type" => "application/json",
             "Accept" => "application/json",
         ]);
@@ -46,14 +46,14 @@ class PaymentController extends Controller
                     "currency" => "XOF",
                     "description" => "Commande Kirefrais #" . $order->reference,
                     "return_url" =>
-                        env("FRONTEND_URL") .
+                    env("FRONTEND_URL") .
                         "/checkout/confirmation?order_id=" .
                         $order->id,
                     "customer_email" => $request->user()->email,
                     "webhook_url"    => env("APP_URL") . "/api/webhook/leekpay",
-                    
+
                 ],
-                
+
             );
         } catch (ConnectionException $e) {
             Log::error("LeekPay : impossible de se connecter", [
@@ -64,7 +64,7 @@ class PaymentController extends Controller
             return response()->json(
                 [
                     "message" =>
-                        "Le service de paiement est inaccessible. Veuillez réessayer dans quelques instants.",
+                    "Le service de paiement est inaccessible. Veuillez réessayer dans quelques instants.",
                 ],
                 503,
             );
@@ -77,11 +77,11 @@ class PaymentController extends Controller
             Log::info("Réponse LeekPay", ["data" => $data]);
 
             if (isset($data["data"]["payment_url"])) {
-                $paymentId = $data["data"]["id"] ?? null;
+                $paymentId = $data["data"]["payment_id"] ?? null;
 
                 // Sauvegarder la référence du paiement sur la commande
                 if ($paymentId) {
-                    $order->update(["payment_reference" => (string) $paymentId]);
+                    $order->update(["payment_reference" => $paymentId]);
                 }
 
                 return response()->json([
@@ -105,7 +105,7 @@ class PaymentController extends Controller
         return response()->json(
             [
                 "message" =>
-                    "Le service de paiement est temporairement indisponible. Veuillez réessayer.",
+                "Le service de paiement est temporairement indisponible. Veuillez réessayer.",
                 "error" => $response->json(),
             ],
             400,
@@ -131,7 +131,7 @@ class PaymentController extends Controller
             return response()->json(
                 [
                     "message" =>
-                        "Le service de paiement est inaccessible. Veuillez réessayer.",
+                    "Le service de paiement est inaccessible. Veuillez réessayer.",
                 ],
                 503,
             );
@@ -310,7 +310,7 @@ class PaymentController extends Controller
                     'meals_per_week'        => $pack->meals_per_week,
                     'portions'              => $pack->portions,
                     'delivery_slot'         => $order->delivery_slot,
-                    'next_delivery_date'    => $order->delivery_date, 
+                    'next_delivery_date'    => $order->delivery_date,
                     'status'                => 'active',
                     'expires_at'            => now()->addWeeks($pack->duration_weeks ?? 1),
                 ]);
